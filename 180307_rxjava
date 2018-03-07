@@ -1,0 +1,122 @@
+public class MainActivity extends AppCompatActivity {
+    private RecyclerView recyclerView;
+    private List<String> mData;
+    private CustomAdapter adapter;
+    private String monthString[];
+    private Observable<String> observable, observableZip, observable2;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        initView();
+        makeDummyData();
+        makeObservable();
+        initAdapter();
+        initRecyclerView();
+
+    }
+
+    private void makeObservable() {
+        observable = Observable.create(e -> {
+            for (String item : monthString) {
+                e.onNext(item);
+                Thread.sleep(1000);
+            }
+            e.onComplete();
+        });
+
+        observable2 = Observable.create(e -> {
+            for (int i=1; i<=12; i=i+1) {
+                e.onNext(i+"");
+                Thread.sleep(1000);
+            }
+            e.onComplete();
+        });
+
+        /*observableZip = Observable.zip(
+                Observable.just("BeWhy", "Curry"),
+                Observable.just("Singer", "Player"),
+                Observable.just("179cm", "213cm"),
+                (item1, item2, item3) -> "name= " + item1 + " Job= " + item2 + " Height= " + item3
+        );*/
+
+        observableZip = Observable.zip(
+                observable,
+                observable2,
+                (item1, item2) -> item1 + " || " + item2
+        );
+    }
+
+    private void makeDummyData() {
+        mData = new ArrayList<>();
+        DateFormatSymbols dfs = new DateFormatSymbols();
+        monthString = dfs.getMonths();
+
+        for (String item:monthString)
+            mData.add(item);
+
+//        mData = Arrays.asList("Hello", "World", "YOLO", "GOOD", "NICE");
+    }
+
+    public void doMap(View v) {
+        mData.clear();
+        observable.subscribeOn(Schedulers.io())
+                  .observeOn(AndroidSchedulers.mainThread())
+                  .filter(str -> !"July".equals(str))
+                  .map(str -> "name: " + str + "\n[" + str + "]")
+                  .subscribe(
+                      str -> {
+                          mData.add(str);
+                          adapter.setmData(mData);
+                      },
+                      Throwable::printStackTrace
+                  );
+    }
+
+    public void doFlatMap(View v) {
+        mData.clear();
+        observable.subscribeOn(Schedulers.io())
+                  .observeOn(AndroidSchedulers.mainThread())
+                  .filter(str -> !"2월".equals(str))
+                  .flatMap(item -> {
+                      return Observable.fromArray(new String[]{"name: " + item, "[" + item + "]"});
+                  })                // 데이터 가공
+                  .subscribe(
+                    str -> {
+                        mData.add(str);
+                        adapter.setmData(mData);
+                    },
+                    Throwable::printStackTrace
+                );
+
+    }
+
+    public void doZip(View v) {
+        mData.clear();
+        observableZip.subscribeOn(Schedulers.io())
+                     .observeOn(AndroidSchedulers.mainThread())
+                     .subscribe(
+                         str -> {
+                             mData.add(str);
+                             adapter.setmData(mData);
+                         },
+                         Throwable::printStackTrace
+                     );
+    }
+
+    private void initAdapter() {
+        adapter = new CustomAdapter();
+        adapter.setmData(mData);
+    }
+
+    private void initRecyclerView() {
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+    }
+
+    private void initView() {
+        recyclerView = findViewById(R.id.recyclerView);
+    }
+}
